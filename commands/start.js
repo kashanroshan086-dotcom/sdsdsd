@@ -34,33 +34,55 @@ module.exports = {
     ),
 
   async execute(interaction, client) {
-    // Premium check
-    const database = JSON.parse(fs.readFileSync('./database.json', 'utf-8'));
-    
-    if (!database.premium_users.includes(interaction.user.id)) {
-      return interaction.reply({
-        embeds: [{
-          color: 0xFF0000,
-          title: '❌ Premium Required',
-          description: 'You need a premium subscription to use this command. Use `/redeem` to activate your key.'
-        }],
-        ephemeral: true
-      });
-    }
-
-    await interaction.deferReply();
-
-    const ssid = interaction.options.getString('ssid');
-    const server = interaction.options.getString('server');
-    const msg1 = interaction.options.getString('msg1');
-    const msg2 = interaction.options.getString('msg2') || null;
-
     try {
+      // Premium check
+      if (!fs.existsSync('./database.json')) {
+        return interaction.reply({
+          embeds: [{
+            color: 0xFF0000,
+            title: '❌ Database Error',
+            description: 'Database file not found.'
+          }],
+          flags: 64
+        });
+      }
+
+      const database = JSON.parse(fs.readFileSync('./database.json', 'utf-8'));
+      
+      if (!database.premium_users.includes(interaction.user.id)) {
+        return interaction.reply({
+          embeds: [{
+            color: 0xFF0000,
+            title: '❌ Premium Required',
+            description: 'You need a premium subscription to use this command. Use `/redeem` to activate your key.'
+          }],
+          flags: 64
+        });
+      }
+
+      await interaction.deferReply();
+
+      // Get parameters with null checks
+      const ssid = interaction.options.getString('ssid');
+      const server = interaction.options.getString('server');
+      const msg1 = interaction.options.getString('msg1');
+      const msg2 = interaction.options.getString('msg2');
+
+      // Validate inputs
+      if (!ssid || !server || !msg1) {
+        return interaction.editReply({
+          embeds: [{
+            color: 0xFF0000,
+            title: '❌ Invalid Input',
+            description: 'Missing required parameters.'
+          }]
+        });
+      }
+
       // Create logging channel
       const guild = interaction.guild;
       const categoryId = config.log_category_id;
       
-      // Use a placeholder username for now (will resolve from session)
       const username = `minecraft_${interaction.user.id.substring(0, 8)}`;
       const channelName = `🤖-log-${username}`;
 
@@ -87,6 +109,7 @@ module.exports = {
       // Initialize Minecraft Manager
       const mcManager = new MinecraftManager(ssid, server, username);
       
+      console.log(`[${username}] Attempting to connect to ${server}...`);
       const connected = await mcManager.connect();
       
       if (!connected) {
@@ -95,7 +118,7 @@ module.exports = {
           embeds: [{
             color: 0xFF0000,
             title: '❌ Connection Failed',
-            description: 'Failed to connect to the Minecraft server.'
+            description: 'Failed to connect to the Minecraft server. Check your SSID and try again.'
           }]
         });
       }
@@ -121,7 +144,7 @@ module.exports = {
       });
 
       // Set spam messages and start looping
-      mcManager.setSpamMessages(msg1, msg2, logChannel);
+      mcManager.setSpamMessages(msg1, msg2 || null, logChannel);
 
       await interaction.editReply({
         embeds: [{
@@ -139,7 +162,7 @@ module.exports = {
           title: '❌ Error',
           description: error.message
         }]
-      });
+      }).catch(() => null);
     }
   }
 };
