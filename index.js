@@ -44,7 +44,7 @@ client.on('interactionCreate', async (interaction) => {
         description: `An error occurred: ${error.message}`,
         timestamp: new Date()
       }],
-      ephemeral: true
+      flags: 64 // ephemeral flag instead of deprecated ephemeral property
     }).catch(() => null);
   }
 });
