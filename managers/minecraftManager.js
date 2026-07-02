@@ -17,44 +17,77 @@ class MinecraftManager {
     try {
       const serverConfig = config.servers[this.server];
       
+      console.log(`[${this.username}] Connecting with username: ${this.username}`);
+      console.log(`[${this.username}] Server: ${serverConfig.ip}:${serverConfig.port}`);
+      
+      // Direct connection without authentication
+      // Use offline mode or direct username
       this.client = mc.createClient({
         host: serverConfig.ip,
         port: serverConfig.port,
         username: this.username,
-        auth: 'microsoft',
-        authServer: 'https://authserver.mojang.com',
         version: serverConfig.version,
-        keepAlive: true
+        keepAlive: true,
+        hideErrors: false,
+        connect: (client) => {
+          console.log(`[${this.username}] Handshake initiated`);
+        }
       });
 
       this.client.on('login', () => {
-        console.log(`✅ Minecraft bot logged in as ${this.username}`);
+        console.log(`✅ [${this.username}] Minecraft bot logged in successfully`);
         this.isConnected = true;
         this.handleSpawn();
       });
 
-      this.client.on('chat', (message) => {
-        this.handleChatMessage(message);
+      this.client.on('packet', (packet) => {
+        // Handle incoming packets
+        if (packet.message) {
+          this.handleChatMessage(packet.message);
+        }
+      });
+
+      this.client.on('chat', (packet) => {
+        const message = packet.message || packet.text || '';
+        if (message) {
+          this.handleChatMessage(message);
+        }
       });
 
       this.client.on('end', (reason) => {
-        console.log(`⚠️ Minecraft client disconnected: ${reason}`);
+        console.log(`⚠️ [${this.username}] Minecraft client disconnected: ${reason}`);
         this.isConnected = false;
         this.cleanup();
       });
 
       this.client.on('error', (error) => {
-        console.error(`❌ Minecraft Error: ${error.message}`);
+        console.error(`❌ [${this.username}] Minecraft Error: ${error.message}`);
+        console.error(error.stack);
+        this.isConnected = false;
       });
+
+      this.client.on('connect', () => {
+        console.log(`[${this.username}] Connected to server`);
+      });
+
+      // Wait for connection attempt
+      await this.delay(3000);
+
+      if (!this.isConnected && this.client) {
+        console.log(`[${this.username}] Still connecting...`);
+      }
 
       return true;
     } catch (error) {
-      console.error(`❌ Failed to connect to Minecraft: ${error.message}`);
+      console.error(`❌ [${this.username}] Failed to connect to Minecraft: ${error.message}`);
+      console.error(error.stack);
       return false;
     }
   }
 
   async handleSpawn() {
+    await this.delay(1000);
+    
     // Send /lobby command
     this.sendCommand('/lobby');
 
@@ -76,7 +109,7 @@ class MinecraftManager {
   }
 
   async handleCatPvP() {
-    console.log('🐱 Handling CatPvP logic...');
+    console.log(`🐱 [${this.username}] Handling CatPvP logic...`);
     
     // Move up 5 blocks
     await this.moveUp(5);
@@ -86,7 +119,7 @@ class MinecraftManager {
   }
 
   async handlePvpLand() {
-    console.log('🏠 Handling PvpLand logic...');
+    console.log(`🏠 [${this.username}] Handling PvpLand logic...`);
     
     // Open window (chest/GUI)
     await this.delay(1000);
@@ -101,7 +134,7 @@ class MinecraftManager {
   }
 
   async handleMinemen() {
-    console.log('⚔️ Handling Minemen logic...');
+    console.log(`⚔️ [${this.username}] Handling Minemen logic...`);
     
     // Open window
     await this.delay(1000);
@@ -116,42 +149,61 @@ class MinecraftManager {
   }
 
   async moveUp(blocks) {
-    console.log(`📍 Moving up ${blocks} blocks...`);
+    console.log(`📍 [${this.username}] Moving up ${blocks} blocks...`);
     
     for (let i = 0; i < blocks; i++) {
-      if (this.client) {
-        this.client.write('player', {
-          x: this.client.player.x,
-          y: this.client.player.y + 1,
-          z: this.client.player.z,
-          onGround: false
-        });
-        await this.delay(100);
+      if (this.client && this.client.player) {
+        try {
+          this.client.write('player', {
+            x: this.client.player.x,
+            y: this.client.player.y + 1.0,
+            z: this.client.player.z,
+            onGround: false
+          });
+          console.log(`[${this.username}] Block ${i + 1}/${blocks} moved`);
+        } catch (e) {
+          console.error(`[${this.username}] Error moving up: ${e.message}`);
+        }
+        await this.delay(150);
       }
     }
   }
 
   sendCommand(command) {
     if (this.client && this.isConnected) {
-      this.client.write('chat', { message: command });
+      try {
+        this.client.write('chat', { message: command });
+        console.log(`[${this.username}] Sent command: ${command}`);
+      } catch (e) {
+        console.error(`[${this.username}] Error sending command: ${e.message}`);
+      }
     }
   }
 
   clickWindowSlot(slot) {
     if (this.client && this.isConnected) {
-      this.client.write('window_click', {
-        windowId: 0,
-        slot: slot,
-        mouseButton: 0,
-        action: 0,
-        mode: 0,
-        item: null
-      });
+      try {
+        this.client.write('window_click', {
+          windowId: 0,
+          slot: slot,
+          mouseButton: 0,
+          action: 0,
+          mode: 0,
+          item: null
+        });
+        console.log(`[${this.username}] Clicked slot ${slot}`);
+      } catch (e) {
+        console.error(`[${this.username}] Error clicking slot: ${e.message}`);
+      }
     }
   }
 
   handleChatMessage(message) {
+    if (!message) return;
+    
     const msg = message.toString().toLowerCase();
+    
+    console.log(`[${this.username}] Chat: ${message}`);
     
     // Check for ban/mute detection
     const punishmentKeywords = [
@@ -160,11 +212,13 @@ class MinecraftManager {
       'you are banned',
       'banned from',
       'suspended',
-      'kicked'
+      'kicked',
+      'connection lost',
+      'timed out'
     ];
 
     if (punishmentKeywords.some(keyword => msg.includes(keyword))) {
-      console.log(`🚨 PUNISHMENT DETECTED: ${message}`);
+      console.log(`🚨 [${this.username}] PUNISHMENT DETECTED: ${message}`);
       this.chatLogs.push({
         type: 'PUNISHMENT',
         message: message,
@@ -182,19 +236,22 @@ class MinecraftManager {
   }
 
   startSpamLoop() {
-    console.log('📢 Starting spam loop...');
-    // This will be called by the command handler with msg1 and msg2
+    console.log(`📢 [${this.username}] Starting spam loop...`);
   }
 
   setSpamMessages(msg1, msg2, channel) {
     let messageIndex = 0;
     const messages = msg2 ? [msg1, msg2] : [msg1];
 
+    console.log(`[${this.username}] Spam messages set: ${messages.join(' | ')}`);
+
     this.spamInterval = setInterval(() => {
       if (this.isConnected && this.client) {
         const currentMsg = messages[messageIndex % messages.length];
         this.sendCommand(currentMsg);
         messageIndex++;
+      } else {
+        console.log(`[${this.username}] Spam loop paused - not connected`);
       }
     }, config.spam_interval);
 
@@ -213,9 +270,9 @@ class MinecraftManager {
             description: transcript,
             timestamp: new Date()
           }]
-        }).catch(err => console.error('Failed to send transcript:', err));
+        }).catch(err => console.error(`[${this.username}] Failed to send transcript:`, err));
 
-        this.chatLogs = []; // Clear logs after sending
+        this.chatLogs = [];
       }
     }, config.transcript_interval);
   }
@@ -233,7 +290,7 @@ class MinecraftManager {
   }
 
   async disconnect(reason = 'User disconnected') {
-    console.log(`🔌 Disconnecting: ${reason}`);
+    console.log(`🔌 [${this.username}] Disconnecting: ${reason}`);
     
     if (this.spamInterval) clearInterval(this.spamInterval);
     if (this.transcriptInterval) clearInterval(this.transcriptInterval);
@@ -244,7 +301,7 @@ class MinecraftManager {
       try {
         this.client.end();
       } catch (error) {
-        console.error('Error closing client:', error);
+        console.error(`[${this.username}] Error closing client:`, error.message);
       }
     }
   }
