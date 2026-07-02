@@ -1,0 +1,13 @@
+{
+  "keys": [
+    {
+      "key": "EXAMPLE_KEY_12345",
+      "redeemed": false,
+      "redeemed_by": null,
+      "expires_at": null
+    }
+  ],
+  "premium_users": [
+    "USER_ID_HERE"
+  ]
+}

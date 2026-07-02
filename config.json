@@ -1,0 +1,24 @@
+{
+  "token": "YOUR_DISCORD_BOT_TOKEN",
+  "owner_id": "YOUR_OWNER_USER_ID",
+  "log_category_id": "YOUR_CATEGORY_ID_FOR_LOGS",
+  "servers": {
+    "catpvp": {
+      "ip": "eu.catpvp.xyz",
+      "port": 25565,
+      "version": "1.8.9"
+    },
+    "pvpland": {
+      "ip": "pvp.land",
+      "port": 25565,
+      "version": "1.8.9"
+    },
+    "minemen": {
+      "ip": "eu.minemen.club",
+      "port": 25565,
+      "version": "1.8.9"
+    }
+  },
+  "spam_interval": 6000,
+  "transcript_interval": 30000
+}
